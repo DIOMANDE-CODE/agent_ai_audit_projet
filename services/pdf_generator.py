@@ -194,7 +194,7 @@ def generer_pdf(contenu_md: str, chemin_md: Path) -> Path:
     def _table_fond(para: Paragraph, fond, bordure_gauche: tuple | None = None,
                     pad: tuple[int, int, int, int] = (14, 10, 14, 10)) -> Table:
         t = Table([[para]], colWidths=[LARGEUR])
-        style_cmds = [
+        style_cmds: list = [
             ('TOPPADDING',    (0, 0), (-1, -1), pad[1]),
             ('BOTTOMPADDING', (0, 0), (-1, -1), pad[3]),
             ('LEFTPADDING',   (0, 0), (-1, -1), pad[0]),
@@ -228,17 +228,26 @@ def generer_pdf(contenu_md: str, chemin_md: Path) -> Path:
                            bordure_gauche=(5, C_H3_BORDURE),
                            pad=(12, 7, 8, 7))
 
-    def el_code(code: str) -> Table:
-        pre = Preformatted(code, S_CODE)
-        t = Table([[pre]], colWidths=[LARGEUR])
-        t.setStyle(TableStyle([
+    def el_code(code: str) -> list:
+        # ReportLab ne peut pas couper une Table à 1 cellule entre deux pages.
+        # Limite : (frame_height 693pt - padding 20pt) / leading 11pt ≈ 61 lignes.
+        # On prend 55 pour laisser une marge de sécurité.
+        MAX_LIGNES = 55
+        _style = TableStyle([
             ('BACKGROUND',    (0, 0), (-1, -1), C_CODE_FOND),
             ('TOPPADDING',    (0, 0), (-1, -1), 10),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
             ('LEFTPADDING',   (0, 0), (-1, -1), 12),
             ('RIGHTPADDING',  (0, 0), (-1, -1), 12),
-        ]))
-        return t
+        ])
+        lignes = code.split('\n')
+        tables = []
+        for i in range(0, max(len(lignes), 1), MAX_LIGNES):
+            pre = Preformatted('\n'.join(lignes[i:i + MAX_LIGNES]), S_CODE)
+            t = Table([[pre]], colWidths=[LARGEUR])
+            t.setStyle(_style)
+            tables.append(t)
+        return tables
 
     def el_blockquote(texte: str) -> Table:
         p = Paragraph(formater_inline(texte), S_BQ)
@@ -322,7 +331,7 @@ def generer_pdf(contenu_md: str, chemin_md: Path) -> Path:
                 if i < len(lignes):
                     i += 1  # dépasser le ``` de fermeture
                 if code_lignes:
-                    elements.append(el_code('\n'.join(code_lignes)))
+                    elements.extend(el_code('\n'.join(code_lignes)))
                     elements.append(Spacer(1, 6))
 
             # Blockquote

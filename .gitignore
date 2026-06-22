@@ -4,6 +4,7 @@
 *.pem
 *.p12
 
+
 # ── Environnement virtuel ─────────────────────────────────────────────────────
 audit-agent-env/
 venv/

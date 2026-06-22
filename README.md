@@ -4,14 +4,14 @@ Agent IA d'audit technique de projets informatiques. Analyse le code source, l'a
 
 ## Fonctionnalités
 
-- Interface web **Streamlit** et interface **CLI**
-- Analyse via **Google Gemini** (gemini-2.5-flash par défaut)
+- Interface web **Streamlit** — sélection de dossier native dans le navigateur (File System Access API)
+- Analyse via **Google Gemini 2.5 Flash**
 - Rapport structuré en **11 blocs** couvrant 8 piliers d'analyse
 - Génération automatique d'un **rapport PDF stylisé** (couleurs, badges de risque, mise en page professionnelle)
 - Ingestion intelligente : priorité aux fichiers critiques, troncature automatique, budget de tokens maîtrisé
-- Détection et exclusion automatique des environnements virtuels Python
-- Détection de réponse dégénérée avec message d'erreur explicite
+- Exclusion automatique des fichiers sensibles (`.env`, `node_modules`, `__pycache__`, venvs…)
 - Streaming : affichage du rapport en temps réel pendant la génération
+- Compatible **Streamlit Cloud** : clé API configurable via les Secrets de déploiement
 
 ## Piliers analysés
 
@@ -26,61 +26,56 @@ Agent IA d'audit technique de projets informatiques. Analyse le code source, l'a
 | 7 | Conformité & Réglementation (RGPD, WCAG) |
 | 8 | Documentation & Expérience Développeur |
 
-## Prérequis
+## Déploiement en ligne (Streamlit Cloud)
+
+1. Forkez / poussez ce dépôt sur GitHub
+2. Connectez-le à [share.streamlit.io](https://share.streamlit.io)
+3. Dans **Settings → Secrets**, ajoutez :
+
+```toml
+GEMINI_API_KEY = "votre_cle_api_ici"
+```
+
+Les utilisateurs accèdent directement à l'URL publique — aucune configuration requise de leur côté.
+
+## Installation locale (développeurs)
+
+### Prérequis
 
 - Python 3.11+
 - Une clé API Google Gemini — [obtenir une clé](https://aistudio.google.com/apikey)
 
-## Installation
+### Étapes
 
 ```bash
-# Cloner le dépôt
 git clone <url-du-repo>
 cd audit-project-agent
 
-# Créer l'environnement virtuel
 python -m venv audit-agent-env
 audit-agent-env\Scripts\activate      # Windows
 # source audit-agent-env/bin/activate # Linux / macOS
 
-# Installer les dépendances
 pip install -r requirements.txt
 ```
-
-## Configuration
 
 Créer un fichier `.env` à la racine (ne jamais le committer) :
 
 ```env
 GEMINI_API_KEY=votre_cle_api_ici
-MODEL_NAME=gemini-2.5-flash
-TEMPERATURE=0.1
-MAX_OUTPUT_TOKENS=65536
 ```
 
-Voir [.env.example](.env.example) pour le modèle complet.
-
-## Utilisation
-
-### Interface web (recommandée)
+Lancer l'interface web :
 
 ```bash
 streamlit run app.py
 ```
 
-Ouvre `http://localhost:8501` dans le navigateur. Saisissez le chemin absolu du projet à auditer, puis cliquez sur **Lancer l'audit**. Le rapport s'affiche en temps réel et est téléchargeable en `.md` et `.pdf`.
-
-### Interface CLI
+Ou lancer via CLI :
 
 ```bash
-# Audit standard
 python main.py /chemin/vers/mon-projet
-
-# Audit avec affichage en temps réel dans le terminal
 python main.py /chemin/vers/mon-projet --stream
 ```
-
-Dans les deux cas, les fichiers `audit_<projet>_<horodatage>.md` et `.pdf` sont déposés à la racine du projet audité si l'option de sauvegarde est activée.
 
 ## Structure du projet
 
@@ -88,13 +83,16 @@ Dans les deux cas, les fichiers `audit_<projet>_<horodatage>.md` et `.pdf` sont 
 audit-project-agent/
 ├── app.py                    # Interface web Streamlit
 ├── main.py                   # Interface CLI
+├── components/
+│   └── folder_picker/        # Composant de sélection de dossier (File System Access API)
+│       └── index.html
 ├── config/
-│   └── settings.py           # Chargement de la configuration (.env)
+│   └── settings.py           # Configuration : st.secrets → .env → variables d'environnement
 ├── core/
 │   ├── ingestion.py          # Chargement et priorisation des fichiers du projet
 │   └── prompts.py            # Génération du prompt d'audit (11 blocs)
 ├── services/
-│   ├── gemini_client.py      # Client Gemini avec retry et détection de dégénérescence
+│   ├── gemini_client.py      # Client Gemini avec retry et streaming
 │   └── pdf_generator.py      # Génération PDF via ReportLab
 ├── requirements.txt
 ├── .env                      # Secrets — NE PAS COMMITTER
@@ -112,6 +110,8 @@ audit-project-agent/
 | `MODEL_NAME` | `gemini-2.5-flash` | Modèle Gemini à utiliser |
 | `TEMPERATURE` | `0.1` | Créativité du modèle (0 = déterministe) |
 | `MAX_OUTPUT_TOKENS` | `65536` | Budget de tokens pour la réponse |
+
+La lecture suit la priorité : `st.secrets` (Streamlit Cloud) → `.env` → variables d'environnement système.
 
 ## Licence
 

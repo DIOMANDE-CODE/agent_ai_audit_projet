@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: transparent;
+      padding: 6px 2px 12px 2px;
+    }
+
+    /* ── Zone idle ── */
+    #view-idle {
+      min-height: 160px;
+      border: 2.5px dashed #aaa;
+      border-radius: 12px;
+      padding: 32px 24px;
+      text-align: center;
+      cursor: pointer;
+      background: #f7f7f7;
+      transition: border-color 0.2s, background 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    #view-idle:hover { border-color: #ff4b4b; background: #fff0f0; }
+    .ico      { font-size: 40px; line-height: 1; }
+    .txt-main { font-size: 15px; font-weight: 700; color: #1a1a2e; }
+    .txt-sub  { font-size: 12px; color: #888; }
+
+    /* ── Zone loading ── */
+    #view-loading {
+      display: none;
+      min-height: 160px;
+      border: 2.5px dashed #ccc;
+      border-radius: 12px;
+      padding: 28px 24px;
+      background: #f7f7f7;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+    .spinner {
+      width: 42px; height: 42px;
+      border: 4px solid #e0e0e0;
+      border-top-color: #ff4b4b;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #spin-label { font-size: 13px; color: #555; font-weight: 500; }
+
+    /* Barre de progression */
+    #bar-wrap {
+      width: 100%; max-width: 280px;
+      height: 6px; background: #e0e0e0;
+      border-radius: 3px; overflow: hidden;
+    }
+    #bar {
+      height: 100%; width: 0%;
+      background: #ff4b4b;
+      border-radius: 3px;
+      transition: width 0.15s ease;
+    }
+    #bar-count { font-size: 11px; color: #aaa; }
+
+    /* ── Zone done ── */
+    #view-done {
+      display: none;
+      min-height: 100px;
+      border: 2.5px solid #28a745;
+      border-radius: 12px;
+      padding: 20px 24px;
+      background: #f0fff4;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #view-done:hover { background: #e0ffe8; }
+    #done-name { font-size: 14px; font-weight: 700; color: #1a7a1a; }
+    #done-hint { font-size: 11px; color: #666; }
+  </style>
+</head>
+<body>
+
+  <!-- Vue 1 : sélection -->
+  <div id="view-idle" onclick="choisirDossier()">
+    <div class="ico">📂</div>
+    <div class="txt-main">Cliquez ici pour choisir un dossier</div>
+    <div class="txt-sub">Sélectionnez le dossier racine de votre projet</div>
+  </div>
+
+  <!-- Vue 2 : chargement -->
+  <div id="view-loading">
+    <div class="spinner"></div>
+    <div id="spin-label">Lecture du dossier…</div>
+    <div id="bar-wrap"><div id="bar"></div></div>
+    <div id="bar-count"></div>
+  </div>
+
+  <!-- Vue 3 : terminé -->
+  <div id="view-done" onclick="choisirDossier()">
+    <div class="ico">✅</div>
+    <div id="done-name"></div>
+    <div id="done-hint">Cliquez pour changer de dossier</div>
+  </div>
+
+  <script>
+    /* ── Streamlit ── */
+    function post(msg) { window.parent.postMessage({ isStreamlitMessage: true, ...msg }, "*"); }
+    function syncH()   { post({ type: "streamlit:setFrameHeight", height: document.body.scrollHeight + 16 }); }
+    function emit(v)   { post({ type: "streamlit:setComponentValue", value: v, dataType: "json" }); }
+    post({ type: "streamlit:componentReady", apiVersion: 1 });
+    window.addEventListener("load", syncH);
+    setTimeout(syncH, 100);
+
+    /* ── Vues ── */
+    function show(id) {
+      ["view-idle","view-loading","view-done"].forEach(v => {
+        document.getElementById(v).style.display = "none";
+      });
+      document.getElementById(id).style.display = "flex";
+      syncH();
+    }
+
+    /* ── Filtres ── */
+    const SKIP = new Set([
+      ".git","__pycache__","node_modules",".venv","venv","env",
+      "dist","build",".next",".nuxt","coverage",".pytest_cache",
+      ".idea",".vscode","target","out","tmp",".cache"
+    ]);
+    const SKIP_EXT = new Set([".pyc",".pyo",".pyd",".exe",".dll",".so",".class",".map"]);
+
+    /* ── Lecture récursive via File System Access API ── */
+    async function lireDossier(handle, chemin, fichiers) {
+      for await (const [nom, h] of handle.entries()) {
+        if (h.kind === "directory") {
+          if (!SKIP.has(nom) && !nom.startsWith(".")) {
+            await lireDossier(h, chemin + nom + "/", fichiers);
+          }
+        } else {
+          const ext = nom.slice(nom.lastIndexOf("."));
+          if (!SKIP_EXT.has(ext) && nom !== ".env") {
+            fichiers.push({ handle: h, chemin: chemin + nom });
+          }
+        }
+      }
+    }
+
+    /* ── Point d'entrée ── */
+    async function choisirDossier() {
+      try {
+        const dirHandle = await window.showDirectoryPicker({ mode: "read" });
+        show("view-loading");
+
+        /* 1. Lire récursivement */
+        document.getElementById("spin-label").textContent = "Lecture du dossier…";
+        document.getElementById("bar").style.width = "0%";
+        document.getElementById("bar-count").textContent = "";
+
+        const fichiers = [];
+        await lireDossier(dirHandle, dirHandle.name + "/", fichiers);
+
+        /* 2. Compresser */
+        const zip = new JSZip();
+        for (let i = 0; i < fichiers.length; i++) {
+          const pct = Math.round((i / fichiers.length) * 90);
+          document.getElementById("bar").style.width    = pct + "%";
+          document.getElementById("spin-label").textContent = "Compression…";
+          document.getElementById("bar-count").textContent  = `${i + 1} / ${fichiers.length} fichiers`;
+          const file = await fichiers[i].handle.getFile();
+          zip.file(fichiers[i].chemin, await file.arrayBuffer());
+        }
+
+        /* 3. Générer le base64 */
+        document.getElementById("spin-label").textContent = "Finalisation…";
+        document.getElementById("bar").style.width = "95%";
+        const b64 = await zip.generateAsync({ type: "base64", compression: "DEFLATE" });
+
+        document.getElementById("bar").style.width = "100%";
+
+        /* 4. Afficher état final */
+        document.getElementById("done-name").textContent =
+          `${dirHandle.name}  —  ${fichiers.length} fichiers`;
+        show("view-done");
+
+        emit(b64);
+
+      } catch (err) {
+        if (err.name !== "AbortError") {
+          console.error(err);
+          document.getElementById("spin-label").textContent = "Erreur : " + err.message;
+          setTimeout(() => show("view-idle"), 3000);
+        } else {
+          show("view-idle");
+        }
+      }
+    }
+
+    show("view-idle");
+  </script>
+</body>
+</html>

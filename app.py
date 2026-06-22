@@ -3,11 +3,15 @@ Interface Streamlit pour l'agent d'audit technique de projets.
 Lance avec : streamlit run app.py
 """
 
+import base64
+import io
 import tempfile
+import zipfile
 from datetime import datetime
 from pathlib import Path
 
 import streamlit as st
+import streamlit.components.v1 as components
 
 from config import settings
 from core.ingestion import charger_contexte_projet
@@ -24,21 +28,32 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Masque le bouton de repli pour verrouiller la sidebar en position ouverte
 st.markdown(
     """
     <style>
     [data-testid="collapsedControl"] { display: none; }
-    section[data-testid="stSidebar"] { pointer-events: auto; }
+    h1 { font-size: 2rem !important; font-weight: 700 !important; }
+    div[data-testid="stButton"] > button[kind="primary"] {
+        height: 2.8rem; font-size: 1rem; font-weight: 600;
+    }
+    div[data-testid="stDownloadButton"] > button {
+        border-radius: 8px; font-weight: 600;
+    }
+    div[data-testid="stStatus"] { margin-bottom: 6px; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
+# ── Composant sélecteur de dossier ────────────────────────────────────────────
+
+_COMPONENT_DIR = Path(__file__).parent / "components" / "folder_picker"
+_folder_picker = components.declare_component("folder_picker", path=str(_COMPONENT_DIR))
+
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.header("Agent IA d'Audit")
+    st.markdown("## Agent IA d'Audit")
 
     config_ok = True
     try:
@@ -47,182 +62,211 @@ with st.sidebar:
         st.error(str(e))
         config_ok = False
 
+    if config_ok:
+        st.success("Service opérationnel")
+
     st.divider()
 
-    sauvegarder_projet = st.checkbox(
-        "Sauvegarder les rapports dans le projet audité",
-        value=True,
-        help="Stocker les fichiers du rapport à la racine du projet audité.",
+    st.markdown(
+        "Cet agent analyse automatiquement votre code source et génère "
+        "un rapport professionnel structuré en **11 blocs d'analyse**."
     )
+
+    st.markdown("""
+**Ce qui est analysé :**
+- Architecture & structure
+- Qualité du code
+- Sécurité & vulnérabilités
+- Performance
+- Dépendances & librairies
+- Tests & couverture
+- Documentation
+- Maintenabilité
+    """)
+
+    st.divider()
+    st.caption("Fait par DIOMANDE DROH MARTIAL")
 
 # ── Titre principal ───────────────────────────────────────────────────────────
 
-st.title("Agent IA d'Audit Technique de Projets")
-st.caption(
-    "Obtenez un diagnostic complet de votre projet en quelques minutes — "
-    "architecture, sécurite, performance, dépendances et bien plus. "
-    "Un rapport professionnel structuré en 11 blocs téléchargeable."
+st.title("Audit Technique de Projets")
+st.markdown(
+    "Obtenez un diagnostic complet de votre code en quelques minutes — "
+    "architecture, sécurité, performance et bien plus. "
+    "Rapport structuré disponible en Markdown et PDF."
 )
 
 if not config_ok:
-    st.warning(
-        "Configurez votre cle API dans le fichier `.env` avant de lancer un audit.\n\n"
-        "Exemple : `GEMINI_API_KEY=votre_cle_ici`"
+    st.stop()
+
+st.divider()
+
+# ── Zone de sélection du projet ───────────────────────────────────────────────
+
+if "audit_en_cours" not in st.session_state:
+    st.session_state.audit_en_cours = False
+
+with st.container(border=True):
+    st.markdown("#### Sélectionnez votre projet")
+    st.caption(
+        "Choisissez le dossier racine de votre projet. "
+        "Les fichiers sensibles (.env, node_modules, __pycache__…) sont automatiquement exclus."
     )
+
+    b64_zip: str | None = _folder_picker(key="folder_picker", default=None, height=240)
+
+    st.markdown("")
+
+    btn_label = "Analyse en cours..." if st.session_state.audit_en_cours else "Lancer l'audit"
+    lancer = st.button(
+        btn_label,
+        type="primary",
+        disabled=b64_zip is None or st.session_state.audit_en_cours,
+        use_container_width=True,
+    )
+
+if lancer:
+    st.session_state.audit_en_cours = True
+
+if not lancer and not st.session_state.audit_en_cours:
     st.stop()
 
-# ── Formulaire ────────────────────────────────────────────────────────────────
-
-chemin_saisi = st.text_input(
-    "Chemin absolu du projet à auditer",
-    placeholder="C:/Users/moi/MonProjet  ou  /home/user/mon-projet",
-)
-
-col1, col2 = st.columns([1, 4])
-lancer = col1.button("Lancer l'audit", type="primary", use_container_width=True)
-
-if not lancer:
+if not b64_zip:
+    st.error("Veuillez sélectionner un dossier avant de lancer l'audit.")
     st.stop()
 
-# ── Validation du chemin ──────────────────────────────────────────────────────
-
-chemin = Path(chemin_saisi.strip()) if chemin_saisi.strip() else None
-
-if not chemin:
-    st.error("Veuillez renseigner un chemin de projet.")
-    st.stop()
-
-if not chemin.is_dir():
-    st.error(f"Chemin introuvable ou n'est pas un dossier : `{chemin}`")
-    st.stop()
+st.divider()
 
 # ── Pipeline d'audit ──────────────────────────────────────────────────────────
 
-horodatage = datetime.now().strftime("%Y%m%d_%H%M%S")
-nom_projet = chemin.resolve().name
-nom_fichier_base = f"audit_{nom_projet}_{horodatage}"
-
-# Etape 1 — Ingestion
-with st.status("Ingestion du projet...", expanded=False) as statut_ingestion:
-    try:
-        contexte, metadonnees = charger_contexte_projet(str(chemin))
-    except FileNotFoundError as e:
-        st.error(str(e))
-        st.stop()
-
-    nb_fichiers = metadonnees.get("nb_fichiers", 0)
-    nb_ignores = len(metadonnees.get("fichiers_ignores", []))
-    tokens_estimes = metadonnees.get("tokens_estimes", 0)
-    chars_contexte = metadonnees.get("chars_contexte", 0)
-
-    st.write(f"{nb_fichiers} fichier(s) charge(s) — {nb_ignores} ignore(s)")
-    st.write(f"Contexte : {chars_contexte:,} chars (~{tokens_estimes:,} tokens estimes)")
-
-    if nb_fichiers == 0:
-        st.error("Aucun fichier analysable trouve dans ce projet.")
-        st.stop()
-
-    statut_ingestion.update(
-        label=f"Ingestion terminee — {nb_fichiers} fichiers / ~{tokens_estimes:,} tokens",
-        state="complete",
-    )
-
-# Etape 2 — Generation du prompt
-with st.status("Generation du prompt d'audit...", expanded=False) as statut_prompt:
-    prompt = generer_prompt_analyse(contexte, metadonnees)
-    statut_prompt.update(
-        label=f"Prompt pret — {len(prompt):,} caracteres",
-        state="complete",
-    )
-
-# Etape 3 — Appel Gemini en streaming
-st.subheader("Rapport d'audit")
-
-rapport_placeholder = st.empty()
-client = GeminiClient()
-chunks: list[str] = []
+tmpdir_zip: tempfile.TemporaryDirectory | None = None  # type: ignore[type-arg]
 
 try:
-    with st.status("Communication avec Gemini en cours...", expanded=False) as statut_gemini:
-        for chunk in client.analyser_projet_stream(prompt):
-            chunks.append(chunk)
-            rapport_placeholder.markdown("".join(chunks))
-        statut_gemini.update(
-            label=f"Rapport genere — {len(''.join(chunks)):,} caracteres",
-            state="complete",
-        )
-except ReponseVideError as e:
-    st.error(f"Reponse invalide de Gemini : {e}")
-    st.stop()
-except GeminiClientError as e:
-    st.error(f"Erreur API Gemini : {e}")
-    st.stop()
-except Exception as e:
-    st.error(f"Erreur inattendue : {e}")
-    st.stop()
-
-contenu_rapport = "".join(chunks)
-contenu_normalise = contenu_rapport.replace("\r\n", "\n").replace("\r", "\n")
-
-# Etape 4 — Generation du PDF
-pdf_bytes: bytes | None = None
-
-with st.status("Generation du rapport PDF...", expanded=False) as statut_pdf:
-    try:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmp_md = Path(tmpdir) / f"{nom_fichier_base}.md"
-            tmp_md.write_text(contenu_normalise, encoding="utf-8", newline="\n")
-            chemin_pdf = generer_pdf(contenu_normalise, tmp_md)
-            pdf_bytes = chemin_pdf.read_bytes()
-        statut_pdf.update(
-            label=f"PDF genere — {len(pdf_bytes) // 1024} Ko",
-            state="complete",
-        )
-    except ImportError as e:
-        statut_pdf.update(label=f"PDF non disponible : {e}", state="error")
-    except Exception as e:
-        statut_pdf.update(label=f"Erreur PDF : {e}", state="error")
-
-# Etape 5 — Sauvegarde dans le projet audite (optionnel)
-if sauvegarder_projet:
-    with st.status("Sauvegarde dans le projet audite...", expanded=False) as statut_save:
+    # Extraction du ZIP (BytesIO — pas d'écriture disque intermédiaire)
+    with st.status("Chargement du projet...", expanded=False) as statut_zip:
         try:
-            chemin_md_sortie = chemin.resolve() / f"{nom_fichier_base}.md"
-            chemin_md_sortie.write_text(contenu_normalise, encoding="utf-8", newline="\n")
-            saved_paths = [str(chemin_md_sortie)]
+            zip_buffer = io.BytesIO(base64.b64decode(b64_zip))
+            tmpdir_zip = tempfile.TemporaryDirectory()
 
-            if pdf_bytes:
-                chemin_pdf_sortie = chemin.resolve() / f"{nom_fichier_base}.pdf"
-                chemin_pdf_sortie.write_bytes(pdf_bytes)
-                saved_paths.append(str(chemin_pdf_sortie))
+            with zipfile.ZipFile(zip_buffer, "r") as zf:
+                membres_surs = [
+                    m for m in zf.namelist()
+                    if not m.startswith("/") and ".." not in m
+                ]
+                zf.extractall(tmpdir_zip.name, members=membres_surs)
 
-            statut_save.update(
-                label="Fichiers sauvegardes dans le projet audite",
+            contenu = [
+                p for p in Path(tmpdir_zip.name).iterdir()
+                if not p.name.startswith(".")
+            ]
+            chemin = (
+                contenu[0]
+                if len(contenu) == 1 and contenu[0].is_dir()
+                else Path(tmpdir_zip.name)
+            )
+            statut_zip.update(label=f"Projet chargé — {chemin.name}", state="complete")
+
+        except Exception as e:
+            st.error(f"Erreur lors du chargement du projet : {e}")
+            st.stop()
+
+    horodatage     = datetime.now().strftime("%Y%m%d_%H%M%S")
+    nom_projet     = chemin.resolve().name
+    nom_fichier_base = f"audit_{nom_projet}_{horodatage}"
+
+    # Ingestion + génération du prompt
+    with st.status("Analyse du projet...", expanded=False) as statut_ingestion:
+        try:
+            contexte, metadonnees = charger_contexte_projet(str(chemin))
+        except FileNotFoundError as e:
+            st.error(str(e))
+            st.stop()
+
+        nb_fichiers    = metadonnees.get("nb_fichiers", 0)
+        nb_ignores     = len(metadonnees.get("fichiers_ignores", []))
+        tokens_estimes = metadonnees.get("tokens_estimes", 0)
+
+        if nb_fichiers == 0:
+            st.error("Aucun fichier analysable trouvé dans ce projet.")
+            st.stop()
+
+        prompt = generer_prompt_analyse(contexte, metadonnees)
+        statut_ingestion.update(
+            label=f"{nb_fichiers} fichiers analysés — {nb_ignores} ignorés — ~{tokens_estimes:,} tokens",
+            state="complete",
+        )
+
+    # Rapport en streaming (accumulation O(n) au lieu de join O(n²) par chunk)
+    st.markdown("### Rapport d'audit")
+    rapport_placeholder = st.empty()
+    client = GeminiClient()
+    rapport_accumule = ""
+
+    try:
+        with st.status("Génération du rapport en cours...", expanded=False) as statut_gemini:
+            for chunk in client.analyser_projet_stream(prompt):
+                rapport_accumule += chunk
+                rapport_placeholder.markdown(rapport_accumule)
+            statut_gemini.update(
+                label=f"Rapport généré — {len(rapport_accumule):,} caractères",
                 state="complete",
             )
-            for p in saved_paths:
-                st.write(p)
-        except OSError as e:
-            statut_save.update(label=f"Erreur de sauvegarde : {e}", state="error")
+    except ReponseVideError as e:
+        st.error(f"Réponse invalide de l'IA : {e}")
+        st.stop()
+    except GeminiClientError as e:
+        st.error(f"Erreur API : {e}")
+        st.stop()
+    except Exception as e:
+        st.error(f"Erreur inattendue : {e}")
+        st.stop()
 
-# ── Boutons de telechargement ─────────────────────────────────────────────────
+    contenu_normalise = rapport_accumule.replace("\r\n", "\n").replace("\r", "\n")
+
+    # Génération du PDF
+    pdf_bytes: bytes | None = None
+    with st.status("Génération du PDF...", expanded=False) as statut_pdf:
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir_pdf:
+                tmp_md = Path(tmpdir_pdf) / f"{nom_fichier_base}.md"
+                tmp_md.write_text(contenu_normalise, encoding="utf-8", newline="\n")
+                chemin_pdf = generer_pdf(contenu_normalise, tmp_md)
+                pdf_bytes = chemin_pdf.read_bytes()
+            statut_pdf.update(
+                label=f"PDF prêt — {len(pdf_bytes) // 1024} Ko",
+                state="complete",
+            )
+        except Exception as e:
+            statut_pdf.update(label=f"Erreur PDF : {e}", state="error")
+
+finally:
+    # Garanti même si st.stop() est appelé en cours de pipeline
+    if tmpdir_zip is not None:
+        tmpdir_zip.cleanup()
+    st.session_state.audit_en_cours = False
+
+# ── Téléchargements ───────────────────────────────────────────────────────────
 
 st.divider()
-col_md, col_pdf, _ = st.columns([1, 1, 3])
+st.markdown("#### Télécharger le rapport")
 
-col_md.download_button(
-    label="Telecharger le rapport (.md)",
-    data=contenu_normalise.encode("utf-8"),
-    file_name=f"{nom_fichier_base}.md",
-    mime="text/markdown",
-    use_container_width=True,
-)
+col_md, col_pdf, _ = st.columns([1, 1, 2])
 
-if pdf_bytes:
-    col_pdf.download_button(
-        label="Telecharger le rapport (.pdf)",
-        data=pdf_bytes,
-        file_name=f"{nom_fichier_base}.pdf",
-        mime="application/pdf",
+with col_md:
+    st.download_button(
+        label="Rapport Markdown (.md)",
+        data=contenu_normalise.encode("utf-8"),
+        file_name=f"{nom_fichier_base}.md",
+        mime="text/markdown",
         use_container_width=True,
     )
+
+if pdf_bytes:
+    with col_pdf:
+        st.download_button(
+            label="Rapport PDF (.pdf)",
+            data=pdf_bytes,
+            file_name=f"{nom_fichier_base}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
