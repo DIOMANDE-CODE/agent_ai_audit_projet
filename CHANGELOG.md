@@ -28,7 +28,9 @@
 
 ### Corrigé
 - Erreur PDF ReportLab `too large on page` : blocs de code découpés en chunks de 55 lignes max pour tenir dans le frame de page
-- `except Exception` trop large dans `_lire_secret` remplacé par `except (AttributeError, KeyError)`
+- `StreamlitSecretNotFoundError` au démarrage sur Render : `_lire_secret` utilisait l'opérateur `in` sur `st.secrets` (lève une exception si aucun `secrets.toml` n'existe) — remplacé par `st.secrets.get()` avec `except Exception` pour tomber proprement en fallback sur `os.getenv`
+- `except (AttributeError, KeyError)` trop étroit dans `_lire_secret` : ne capturait pas les erreurs du sous-système secrets de Streamlit
+- Dockerfile : port hardcodé `8501` ignorait la variable `PORT` injectée par Render → `CMD` mis à jour avec `--server.port ${PORT:-8501}`
 - Rapports illisibles sur Windows : normalisation des fins de ligne (`\r\n` → `\n`)
 - Troncature du rapport au BLOC 4 : budget de tokens insuffisant (thinking tokens Gemini non comptés)
 - Ingestion du dossier `audit-agent-env/` (venv non standard) : détection générique via `pyvenv.cfg`

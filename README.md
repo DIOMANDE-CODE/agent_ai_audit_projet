@@ -11,7 +11,7 @@ Agent IA d'audit technique de projets informatiques. Analyse le code source, l'a
 - Ingestion intelligente : priorité aux fichiers critiques, troncature automatique, budget de tokens maîtrisé
 - Exclusion automatique des fichiers sensibles (`.env`, `node_modules`, `__pycache__`, venvs…)
 - Streaming : affichage du rapport en temps réel pendant la génération
-- Compatible **Streamlit Cloud** : clé API configurable via les Secrets de déploiement
+- Compatible **Streamlit Cloud** et **Render** : clé API configurable via variables d'environnement, aucun `secrets.toml` requis
 
 ## Piliers analysés
 
@@ -38,7 +38,22 @@ GEMINI_API_KEY = "votre_cle_api_ici"
 
 Les utilisateurs accèdent directement à l'URL publique — aucune configuration requise de leur côté.
 
-## Déploiement Docker
+## Déploiement sur Render
+
+1. Poussez le dépôt sur GitHub
+2. Sur [render.com](https://render.com) → **New → Web Service** → connecter le repo
+3. Runtime : **Docker** (Render détecte automatiquement le `Dockerfile`)
+4. Dans **Environment → Environment Variables**, ajouter :
+
+| Key | Value |
+|---|---|
+| `GEMINI_API_KEY` | votre clé API Gemini |
+
+5. Cliquer **Create Web Service** — Render construit l'image et expose l'URL publique.
+
+> Le Dockerfile lit automatiquement la variable `PORT` injectée par Render — aucune configuration de port manuelle requise.
+
+## Déploiement Docker (local)
 
 ```bash
 # Build (nécessite BuildKit)
