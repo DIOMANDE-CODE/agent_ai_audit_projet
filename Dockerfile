@@ -10,10 +10,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
 # ── Streamlit (production) ────────────────────────────────────────────────────
+# PORT est injecté par Render (et d'autres plateformes) ; fallback 8501 en local.
 ENV STREAMLIT_SERVER_HEADLESS=true \
     STREAMLIT_SERVER_FILE_WATCHER_TYPE=none \
     STREAMLIT_BROWSER_GATHER_USAGE_STATS=false \
-    STREAMLIT_SERVER_PORT=8501 \
     STREAMLIT_SERVER_ADDRESS=0.0.0.0
 
 WORKDIR /app
@@ -33,9 +33,10 @@ USER appuser
 
 EXPOSE 8501
 
-# Vérification de santé via l'endpoint natif de Streamlit
+# Vérification de santé — utilise le port effectif (Render ou 8501 en local)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health')" \
+    CMD python -c "import os,urllib.request; urllib.request.urlopen(f'http://localhost:{os.environ.get(\"PORT\",\"8501\")}/_stcore/health')" \
     || exit 1
 
-CMD ["streamlit", "run", "app.py"]
+# PORT est injecté par Render ; fallback 8501 pour docker run local
+CMD ["sh", "-c", "streamlit run app.py --server.port ${PORT:-8501}"]
