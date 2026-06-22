@@ -101,10 +101,14 @@ if not config_ok:
 
 st.divider()
 
-# ── Zone de sélection du projet ───────────────────────────────────────────────
+# ── Session state ─────────────────────────────────────────────────────────────
 
 if "audit_en_cours" not in st.session_state:
     st.session_state.audit_en_cours = False
+if "audit_result" not in st.session_state:
+    st.session_state.audit_result = None
+
+# ── Zone de sélection du projet ───────────────────────────────────────────────
 
 with st.container(border=True):
     st.markdown("#### Sélectionnez votre projet")
@@ -127,9 +131,37 @@ with st.container(border=True):
 
 if lancer:
     st.session_state.audit_en_cours = True
+    st.session_state.audit_result = None
     st.rerun()
 
+# ── Résultats du dernier audit (si disponibles et pas d'audit en cours) ───────
+
 if not st.session_state.audit_en_cours:
+    if st.session_state.audit_result:
+        result = st.session_state.audit_result
+        st.divider()
+        st.markdown("### Rapport d'audit")
+        st.markdown(result["rapport"])
+        st.divider()
+        st.markdown("#### Télécharger le rapport")
+        col_md, col_pdf, _ = st.columns([1, 1, 2])
+        with col_md:
+            st.download_button(
+                label="Rapport Markdown (.md)",
+                data=result["rapport"].encode("utf-8"),
+                file_name=f"{result['nom']}.md",
+                mime="text/markdown",
+                use_container_width=True,
+            )
+        if result["pdf_bytes"]:
+            with col_pdf:
+                st.download_button(
+                    label="Rapport PDF (.pdf)",
+                    data=result["pdf_bytes"],
+                    file_name=f"{result['nom']}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
     st.stop()
 
 if not b64_zip:
@@ -171,8 +203,8 @@ try:
             st.error(f"Erreur lors du chargement du projet : {e}")
             st.stop()
 
-    horodatage     = datetime.now().strftime("%Y%m%d_%H%M%S")
-    nom_projet     = chemin.resolve().name
+    horodatage       = datetime.now().strftime("%Y%m%d_%H%M%S")
+    nom_projet       = chemin.resolve().name
     nom_fichier_base = f"audit_{nom_projet}_{horodatage}"
 
     # Ingestion + génération du prompt
@@ -197,7 +229,7 @@ try:
             state="complete",
         )
 
-    # Rapport en streaming (accumulation O(n) au lieu de join O(n²) par chunk)
+    # Rapport en streaming
     st.markdown("### Rapport d'audit")
     rapport_placeholder = st.empty()
     client = GeminiClient()
@@ -240,34 +272,17 @@ try:
         except Exception as e:
             statut_pdf.update(label=f"Erreur PDF : {e}", state="error")
 
+    # Sauvegarde des résultats en session state avant le rerun
+    st.session_state.audit_result = {
+        "rapport": contenu_normalise,
+        "pdf_bytes": pdf_bytes,
+        "nom": nom_fichier_base,
+    }
+
 finally:
-    # Garanti même si st.stop() est appelé en cours de pipeline
     if tmpdir_zip is not None:
         tmpdir_zip.cleanup()
     st.session_state.audit_en_cours = False
 
-# ── Téléchargements ───────────────────────────────────────────────────────────
-
-st.divider()
-st.markdown("#### Télécharger le rapport")
-
-col_md, col_pdf, _ = st.columns([1, 1, 2])
-
-with col_md:
-    st.download_button(
-        label="Rapport Markdown (.md)",
-        data=contenu_normalise.encode("utf-8"),
-        file_name=f"{nom_fichier_base}.md",
-        mime="text/markdown",
-        use_container_width=True,
-    )
-
-if pdf_bytes:
-    with col_pdf:
-        st.download_button(
-            label="Rapport PDF (.pdf)",
-            data=pdf_bytes,
-            file_name=f"{nom_fichier_base}.pdf",
-            mime="application/pdf",
-            use_container_width=True,
-        )
+# Rerun uniquement si le pipeline s'est terminé normalement (pas de st.stop())
+st.rerun()
