@@ -38,11 +38,25 @@ GEMINI_API_KEY = "votre_cle_api_ici"
 
 Les utilisateurs accèdent directement à l'URL publique — aucune configuration requise de leur côté.
 
+## Déploiement Docker
+
+```bash
+# Build (nécessite BuildKit)
+DOCKER_BUILDKIT=1 docker build -t audit-project-agent .
+
+# Lancer avec la clé API
+docker run -p 8501:8501 -e GEMINI_API_KEY=votre_cle_api audit-project-agent
+```
+
+L'application est accessible sur [http://localhost:8501](http://localhost:8501).
+
+> Le `.dockerignore` exclut automatiquement `.env` et les secrets — ne pas passer la clé via `COPY`.
+
 ## Installation locale (développeurs)
 
 ### Prérequis
 
-- Python 3.11+
+- Python 3.12+
 - Une clé API Google Gemini — [obtenir une clé](https://aistudio.google.com/apikey)
 
 ### Étapes
@@ -70,19 +84,13 @@ Lancer l'interface web :
 streamlit run app.py
 ```
 
-Ou lancer via CLI :
-
-```bash
-python main.py /chemin/vers/mon-projet
-python main.py /chemin/vers/mon-projet --stream
-```
-
 ## Structure du projet
 
 ```
 audit-project-agent/
 ├── app.py                    # Interface web Streamlit
-├── main.py                   # Interface CLI
+├── Dockerfile                # Image production (python:3.12-slim, non-root, healthcheck)
+├── .dockerignore
 ├── components/
 │   └── folder_picker/        # Composant de sélection de dossier (File System Access API)
 │       └── index.html

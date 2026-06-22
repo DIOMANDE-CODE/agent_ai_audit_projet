@@ -33,8 +33,15 @@
 - Troncature du rapport au BLOC 4 : budget de tokens insuffisant (thinking tokens Gemini non comptés)
 - Ingestion du dossier `audit-agent-env/` (venv non standard) : détection générique via `pyvenv.cfg`
 
+### Docker
+- **Dockerfile** production-ready : image `python:3.12-slim`, utilisateur non-root `appuser`, variables d'environnement Streamlit intégrées, `HEALTHCHECK` sur `/_stcore/health`
+- **BuildKit cache mount** (`--mount=type=cache,target=/root/.cache/pip`) : rebuild sans re-télécharger les wheels si `requirements.txt` est inchangé
+- **`--compile`** sur `pip install` : pré-compilation des `.pyc` au build → démarrage du conteneur plus rapide
+- **`.dockerignore`** : exclut `.env`, venvs, caches, rapports générés et secrets Streamlit
+
 ### Supprimé
 - Dépendance WeasyPrint (remplacée par ReportLab)
+- 7 dépendances exclusives de WeasyPrint supprimées de `requirements.txt` : `pydyf`, `pyphen`, `tinycss2`, `tinyhtml5`, `cssselect2`, `zopfli`, `webencodings` (~30 MB en moins dans l'image Docker)
 - Option CLI `--sortie` (les rapports vont toujours à la racine du projet audité)
 - Scripts `lancer.bat` / `lancer.sh` (mode local supprimé, tout se fait en ligne)
 - Mode local tkinter (sélecteur de dossier natif OS, sauvegarde dans le projet audité)
