@@ -1,0 +1,36 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Environnement virtuel
+audit-agent-env/
+venv/
+.venv/
+env/
+
+# Cache Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Git
+.git/
+.gitignore
+
+# Rapports générés
+audit_*.md
+audit_*.pdf
+rapports/
+
+# Streamlit secrets locaux
+.streamlit/secrets.toml
+
+# Éditeurs
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
