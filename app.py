@@ -127,8 +127,9 @@ with st.container(border=True):
 
 if lancer:
     st.session_state.audit_en_cours = True
+    st.rerun()
 
-if not lancer and not st.session_state.audit_en_cours:
+if not st.session_state.audit_en_cours:
     st.stop()
 
 if not b64_zip:
