@@ -15,9 +15,10 @@ def _lire_secret(cle: str, defaut: str = "") -> str:
     """Lit depuis st.secrets (Streamlit Cloud) en priorité, puis depuis .env / variables d'environnement."""
     if _st is not None:
         try:
-            if cle in _st.secrets:
-                return str(_st.secrets[cle])
-        except (AttributeError, KeyError):
+            val = _st.secrets.get(cle)
+            if val is not None:
+                return str(val)
+        except Exception:
             pass
     return os.getenv(cle, defaut)
 
