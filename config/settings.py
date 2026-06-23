@@ -19,23 +19,11 @@ except ImportError:
 def _lire_secret(cle: str, defaut: str = "") -> str:
     """
     Ordre de priorité :
-      1. st.secrets       (Streamlit Cloud)
-      2. .env / variables d'environnement système
-      3. config/_bundled  (clé embarquée dans le package distribué)
+      1. config/_bundled  (clé embarquée — priorité absolue pour les installations distribuées)
+      2. st.secrets       (Streamlit Cloud)
+      3. .env / variables d'environnement système
     """
-    if _st is not None:
-        try:
-            val = _st.secrets.get(cle)
-            if val is not None:
-                return str(val)
-        except Exception:
-            pass
-
-    valeur = os.getenv(cle, "")
-    if valeur:
-        return valeur
-
-    # Fallback : clé embarquée dans le package (pour les installations distribuées)
+    # Clé bundlée — toujours utilisée si présente, indépendamment des variables d'environnement
     if cle == "GEMINI_API_KEY":
         try:
             from config._bundled import GEMINI_API_KEY as _cle_bundled
@@ -44,7 +32,15 @@ def _lire_secret(cle: str, defaut: str = "") -> str:
         except ImportError:
             pass
 
-    return defaut
+    if _st is not None:
+        try:
+            val = _st.secrets.get(cle)
+            if val is not None:
+                return str(val)
+        except Exception:
+            pass
+
+    return os.getenv(cle, defaut)
 
 
 class Settings:

@@ -1,0 +1,70 @@
+name: Build et Publication
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  # ── Build de l'exécutable Windows ──────────────────────────────────────────
+  build-exe:
+    name: Exécutable Windows (.exe)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installer les dépendances
+        run: pip install pyinstaller google-genai python-dotenv reportlab rich
+
+      - name: Builder pulse.exe
+        run: pyinstaller --onefile --name pulse main.py
+
+      - name: Uploader pulse.exe dans la Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/pulse.exe
+
+  # ── Publication sur PyPI (pour pip install codepulse) ──────────────────────
+  build-pypi:
+    name: Package PyPI
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installer build
+        run: pip install build
+
+      - name: Builder le package
+        run: python -m build
+
+      - name: Uploader les artefacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish-pypi:
+    name: Publier sur PyPI
+    needs: build-pypi
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/codepulse/
+    permissions:
+      id-token: write
+    steps:
+      - name: Télécharger les artefacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publier sur PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
