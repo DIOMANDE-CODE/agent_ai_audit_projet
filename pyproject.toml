@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-audit-ai"
-version = "1.0.1"
+version = "1.0.2"
 description = "Agent IA d'audit technique de projets — analyse le code source et génère un rapport structuré en Markdown et PDF."
-readme = "README.md"
+readme = "README_PYPI.md"
 license = "MIT"
 requires-python = ">=3.12"
 authors = [
