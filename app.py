@@ -85,6 +85,15 @@ with st.sidebar:
     """)
 
     st.divider()
+
+    with st.expander("Installer CodePulse sur votre PC", icon="💻"):
+        st.markdown("**Via PyPI (recommandé)**")
+        st.code("pip install agent-audit-ai", language="bash")
+        st.markdown("**Utilisation**")
+        st.code("audit .\naudit /chemin/vers/mon-projet\naudit /chemin/vers/mon-projet --stream", language="bash")
+        st.caption("Aucune configuration requise — la clé API est embarquée.")
+
+    st.divider()
     st.caption("Fait par DIOMANDE DROH MARTIAL")
 
 # ── Titre principal ───────────────────────────────────────────────────────────

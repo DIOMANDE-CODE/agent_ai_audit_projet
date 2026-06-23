@@ -4,7 +4,8 @@ Agent IA d'audit technique de projets informatiques. Analyse le code source, l'a
 
 ## Fonctionnalités
 
-- Commande `audit` installable dans le terminal (CMD, PowerShell, bash)
+- Commande `audit` installable en une ligne depuis n'importe quel terminal (CMD, PowerShell, bash)
+- Clé API embarquée — aucune configuration requise après installation
 - Analyse via **Google Gemini 2.5 Flash**
 - Rapport structuré en **11 blocs** couvrant 8 piliers d'analyse
 - Génération automatique d'un **rapport PDF stylisé** (couleurs, badges de risque, mise en page professionnelle)
@@ -29,50 +30,55 @@ Agent IA d'audit technique de projets informatiques. Analyse le code source, l'a
 
 ---
 
-## Installation en ligne de commande
+## Installation
 
-### Prérequis
-
-- Python 3.12+
-- Une clé API Google Gemini — [obtenir une clé](https://aistudio.google.com/apikey)
-
-### Étapes
+### Via PyPI (recommandé)
 
 ```bash
-git clone <url-du-repo>
-cd audit-project-agent
+pip install agent-audit-ai
+audit .
+```
 
-python -m venv codeaudit-env
-codeaudit-env\Scripts\activate        # Windows CMD / PowerShell
-# source codeaudit-env/bin/activate   # Linux / macOS
+Aucune configuration requise — la clé API est embarquée dans le package.
+
+### Via l'exécutable Windows
+
+Télécharger `audit.exe` depuis la page [Releases GitHub](https://github.com/DIOMANDE-CODE/agent_ai_audit_projet/releases), le placer dans `C:\Windows\System32\` et l'utiliser directement :
+
+```cmd
+audit .
+```
+
+### Via le code source
+
+```bash
+git clone https://github.com/DIOMANDE-CODE/agent_ai_audit_projet.git
+cd agent_ai_audit_projet
+
+python -m venv codepulse-env
+codepulse-env\Scripts\activate        # Windows
+# source codepulse-env/bin/activate   # Linux / macOS
 
 pip install -e .
+audit .
 ```
 
-### Configurer la clé API (une seule fois)
+---
+
+## Utilisation
 
 ```bash
-# Windows CMD
-echo GEMINI_API_KEY=votre_cle_api_ici >> %USERPROFILE%\.env
-
-# Windows PowerShell
-Add-Content "$env:USERPROFILE\.env" "GEMINI_API_KEY=votre_cle_api_ici"
-
-# Linux / macOS
-echo "GEMINI_API_KEY=votre_cle_api_ici" >> ~/.env
-```
-
-### Utilisation
-
-```bash
-# Auditer un projet
-audit /chemin/vers/mon-projet
-
 # Auditer le dossier courant
 audit .
 
-# Afficher le rapport en temps réel
+# Auditer un projet spécifique
+audit /chemin/vers/mon-projet
+
+# Afficher le rapport en temps réel pendant la génération
 audit /chemin/vers/mon-projet --stream
+
+# Aide
+audit --help
 ```
 
 Les rapports `.md` et `.pdf` sont générés à la racine du projet audité.
@@ -109,8 +115,8 @@ GEMINI_API_KEY = "votre_cle_api_ici"
 ### Docker (local)
 
 ```bash
-DOCKER_BUILDKIT=1 docker build -t codeaudit .
-docker run -p 8501:8501 -e GEMINI_API_KEY=votre_cle_api codeaudit
+DOCKER_BUILDKIT=1 docker build -t codepulse .
+docker run -p 8501:8501 -e GEMINI_API_KEY=votre_cle_api codepulse
 ```
 
 ---
@@ -118,17 +124,21 @@ docker run -p 8501:8501 -e GEMINI_API_KEY=votre_cle_api codeaudit
 ## Structure du projet
 
 ```
-audit-project-agent/
+agent_ai_audit_projet/
 ├── main.py                   # CLI — commande `audit`
 ├── app.py                    # Interface web Streamlit (optionnelle)
-├── pyproject.toml            # Packaging — rend `audit` installable
+├── pyproject.toml            # Packaging pip (agent-audit-ai)
 ├── Dockerfile                # Image production (python:3.12-slim, non-root, healthcheck)
 ├── .dockerignore
+├── .github/
+│   └── workflows/
+│       └── publish.yml       # CI/CD : build exe + publication PyPI
 ├── components/
 │   └── folder_picker/        # Composant sélection de dossier (File System Access API)
 │       └── index.html
 ├── config/
-│   └── settings.py           # Configuration : .env (CWD) → .env (~) → env vars
+│   ├── settings.py           # Configuration : _bundled → st.secrets → .env → env vars
+│   └── _bundled.py           # Clé API embarquée (gitignore)
 ├── core/
 │   ├── ingestion.py          # Chargement et priorisation des fichiers du projet
 │   └── prompts.py            # Génération du prompt d'audit (11 blocs)
@@ -136,24 +146,26 @@ audit-project-agent/
 │   ├── gemini_client.py      # Client Gemini avec retry et streaming
 │   └── pdf_generator.py      # Génération PDF via ReportLab
 ├── requirements.txt
-├── .env                      # Secrets — NE PAS COMMITTER
 ├── .env.example              # Modèle de configuration
 ├── .gitignore
+├── LICENSE
 ├── README.md
 └── CHANGELOG.md
 ```
 
 ## Variables d'environnement
 
+> Non requis si la clé est embarquée dans le package distribué.
+
 | Variable | Défaut | Description |
 |---|---|---|
-| `GEMINI_API_KEY` | *(obligatoire)* | Clé API Google Gemini |
+| `GEMINI_API_KEY` | *(embarquée)* | Clé API Google Gemini |
 | `MODEL_NAME` | `gemini-2.5-flash` | Modèle Gemini à utiliser |
 | `TEMPERATURE` | `0.1` | Créativité du modèle (0 = déterministe) |
 | `MAX_OUTPUT_TOKENS` | `65536` | Budget de tokens pour la réponse |
 
-La lecture suit la priorité : `.env` (dossier courant) → `~/.env` (home) → variables d'environnement système → `st.secrets` (Streamlit Cloud).
+Priorité de lecture : clé embarquée (`_bundled.py`) → `st.secrets` → `.env` → variables d'environnement système.
 
 ## Licence
 
-Usage personnel et professionnel. Ne pas partager la clé API.
+MIT — voir [LICENSE](LICENSE).

@@ -19,19 +19,27 @@ jobs:
         with:
           python-version: "3.12"
 
+      - name: Injecter la clé API dans _bundled.py
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          echo "# Généré automatiquement par CI — ne pas modifier." > config/_bundled.py
+          echo "GEMINI_API_KEY = `"$env:GEMINI_API_KEY`"" >> config/_bundled.py
+        shell: pwsh
+
       - name: Installer les dépendances
         run: pip install pyinstaller google-genai python-dotenv reportlab rich
 
-      - name: Builder pulse.exe
-        run: pyinstaller --onefile --name pulse main.py
+      - name: Builder audit.exe
+        run: pyinstaller --onefile --name audit main.py
 
       # Sur push/main → artifact téléchargeable depuis l'onglet Actions
       - name: Uploader comme artifact (push sur main)
         if: github.event_name == 'push'
         uses: actions/upload-artifact@v4
         with:
-          name: pulse-windows
-          path: dist/pulse.exe
+          name: audit-windows
+          path: dist/audit.exe
           retention-days: 30
 
       # Sur release → joint à la Release GitHub
@@ -39,9 +47,9 @@ jobs:
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/pulse.exe
+          files: dist/audit.exe
 
-  # ── Publication PyPI (uniquement sur release) ──────────────────────────────
+  # ── Build package PyPI ─────────────────────────────────────────────────────
   build-pypi:
     name: Package PyPI
     runs-on: ubuntu-latest
@@ -51,6 +59,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+
+      - name: Injecter la clé API dans _bundled.py
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          printf '# Généré automatiquement par CI — ne pas modifier.\nGEMINI_API_KEY = "%s"\n' "$GEMINI_API_KEY" > config/_bundled.py
 
       - name: Builder le package
         run: pip install build && python -m build
@@ -68,7 +82,7 @@ jobs:
     if: github.event_name == 'release'
     environment:
       name: pypi
-      url: https://pypi.org/project/codepulse/
+      url: https://pypi.org/project/agent-audit-ai/
     permissions:
       id-token: write
     steps:
