@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "codepulse"
+name = "agent-audit-ai"
 version = "1.0.0"
 description = "Agent IA d'audit technique de projets — analyse le code source et génère un rapport structuré en Markdown et PDF."
 readme = "README.md"
@@ -35,7 +35,7 @@ Homepage = "https://github.com/DIOMANDE-CODE/audit-project-agent"
 Issues   = "https://github.com/DIOMANDE-CODE/audit-project-agent/issues"
 
 [project.scripts]
-pulse = "main:main"
+audit = "main:main"
 
 [tool.setuptools]
 py-modules = ["main"]

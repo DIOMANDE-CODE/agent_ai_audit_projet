@@ -1,6 +1,6 @@
 """
 CLI d'audit technique de projets.
-Usage : pulse /chemin/vers/mon-projet [--stream]
+Usage : audit /chemin/vers/mon-projet [--stream]
 """
 
 import argparse
@@ -39,7 +39,7 @@ def configurer_si_necessaire() -> None:
     """
     Si aucune clé API n'est trouvée, demande interactivement à l'utilisateur
     de la saisir, la sauvegarde dans ~/.env et recharge les settings.
-    Appelé automatiquement au premier `pulse`.
+    Appelé automatiquement au premier `audit`.
     """
     if settings.GEMINI_API_KEY:
         return
@@ -167,14 +167,14 @@ def lancer_audit(chemin_projet: str, stream: bool) -> int:
 
 def construire_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="pulse",
+        prog="audit",
         description="CodePulse — génère un rapport d'audit technique complet d'un projet via Gemini.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 exemples :
-  pulse /chemin/vers/mon-projet
-  pulse .
-  pulse /chemin/vers/mon-projet --stream
+  audit /chemin/vers/mon-projet
+  audit .
+  audit /chemin/vers/mon-projet --stream
 
 Les rapports (.md et .pdf) sont générés à la racine du projet audité.
         """,

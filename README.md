@@ -4,7 +4,7 @@ Agent IA d'audit technique de projets informatiques. Analyse le code source, l'a
 
 ## Fonctionnalités
 
-- Commande `pulse` installable dans le terminal (CMD, PowerShell, bash)
+- Commande `audit` installable dans le terminal (CMD, PowerShell, bash)
 - Analyse via **Google Gemini 2.5 Flash**
 - Rapport structuré en **11 blocs** couvrant 8 piliers d'analyse
 - Génération automatique d'un **rapport PDF stylisé** (couleurs, badges de risque, mise en page professionnelle)
@@ -42,9 +42,9 @@ Agent IA d'audit technique de projets informatiques. Analyse le code source, l'a
 git clone <url-du-repo>
 cd audit-project-agent
 
-python -m venv codepulse-env
-codepulse-env\Scripts\activate        # Windows CMD / PowerShell
-# source codepulse-env/bin/activate   # Linux / macOS
+python -m venv codeaudit-env
+codeaudit-env\Scripts\activate        # Windows CMD / PowerShell
+# source codeaudit-env/bin/activate   # Linux / macOS
 
 pip install -e .
 ```
@@ -66,13 +66,13 @@ echo "GEMINI_API_KEY=votre_cle_api_ici" >> ~/.env
 
 ```bash
 # Auditer un projet
-pulse /chemin/vers/mon-projet
+audit /chemin/vers/mon-projet
 
 # Auditer le dossier courant
-pulse .
+audit .
 
 # Afficher le rapport en temps réel
-pulse /chemin/vers/mon-projet --stream
+audit /chemin/vers/mon-projet --stream
 ```
 
 Les rapports `.md` et `.pdf` sont générés à la racine du projet audité.
@@ -109,8 +109,8 @@ GEMINI_API_KEY = "votre_cle_api_ici"
 ### Docker (local)
 
 ```bash
-DOCKER_BUILDKIT=1 docker build -t codepulse .
-docker run -p 8501:8501 -e GEMINI_API_KEY=votre_cle_api codepulse
+DOCKER_BUILDKIT=1 docker build -t codeaudit .
+docker run -p 8501:8501 -e GEMINI_API_KEY=votre_cle_api codeaudit
 ```
 
 ---
@@ -119,9 +119,9 @@ docker run -p 8501:8501 -e GEMINI_API_KEY=votre_cle_api codepulse
 
 ```
 audit-project-agent/
-├── main.py                   # CLI — commande `pulse`
+├── main.py                   # CLI — commande `audit`
 ├── app.py                    # Interface web Streamlit (optionnelle)
-├── pyproject.toml            # Packaging — rend `pulse` installable
+├── pyproject.toml            # Packaging — rend `audit` installable
 ├── Dockerfile                # Image production (python:3.12-slim, non-root, healthcheck)
 ├── .dockerignore
 ├── components/
