@@ -1,11 +1,13 @@
 name: Build et Publication
 
 on:
+  push:
+    branches: [main]
   release:
     types: [published]
 
 jobs:
-  # ── Build de l'exécutable Windows ──────────────────────────────────────────
+  # ── Build exécutable Windows ───────────────────────────────────────────────
   build-exe:
     name: Exécutable Windows (.exe)
     runs-on: windows-latest
@@ -22,12 +24,23 @@ jobs:
       - name: Builder pulse.exe
         run: pyinstaller --onefile --name pulse main.py
 
-      - name: Uploader pulse.exe dans la Release
+      # Sur push/main → artifact téléchargeable depuis l'onglet Actions
+      - name: Uploader comme artifact (push sur main)
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pulse-windows
+          path: dist/pulse.exe
+          retention-days: 30
+
+      # Sur release → joint à la Release GitHub
+      - name: Attacher à la Release GitHub
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: dist/pulse.exe
 
-  # ── Publication sur PyPI (pour pip install codepulse) ──────────────────────
+  # ── Publication PyPI (uniquement sur release) ──────────────────────────────
   build-pypi:
     name: Package PyPI
     runs-on: ubuntu-latest
@@ -38,22 +51,20 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Installer build
-        run: pip install build
-
       - name: Builder le package
-        run: python -m build
+        run: pip install build && python -m build
 
       - name: Uploader les artefacts
         uses: actions/upload-artifact@v4
         with:
-          name: dist
+          name: dist-pypi
           path: dist/
 
   publish-pypi:
     name: Publier sur PyPI
     needs: build-pypi
     runs-on: ubuntu-latest
+    if: github.event_name == 'release'
     environment:
       name: pypi
       url: https://pypi.org/project/codepulse/
@@ -63,7 +74,7 @@ jobs:
       - name: Télécharger les artefacts
         uses: actions/download-artifact@v4
         with:
-          name: dist
+          name: dist-pypi
           path: dist/
 
       - name: Publier sur PyPI
