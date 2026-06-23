@@ -22,7 +22,7 @@ from services.pdf_generator import generer_pdf
 # ── Configuration de la page ──────────────────────────────────────────────────
 
 st.set_page_config(
-    page_title="Audit Project Agent",
+    page_title="CodePulse",
     page_icon="assets/icon.png" if Path("assets/icon.png").exists() else None,
     layout="wide",
     initial_sidebar_state="expanded",
@@ -53,7 +53,7 @@ _folder_picker = components.declare_component("folder_picker", path=str(_COMPONE
 # ── Sidebar ───────────────────────────────────────────────────────────────────
 
 with st.sidebar:
-    st.markdown("## Agent IA d'Audit")
+    st.markdown("## CodePulse")
 
     config_ok = True
     try:
@@ -89,7 +89,7 @@ with st.sidebar:
 
 # ── Titre principal ───────────────────────────────────────────────────────────
 
-st.title("Audit Technique de Projets")
+st.title("CodePulse — Audit Technique de Projets")
 st.markdown(
     "Obtenez un diagnostic complet de votre code en quelques minutes — "
     "architecture, sécurité, performance et bien plus. "

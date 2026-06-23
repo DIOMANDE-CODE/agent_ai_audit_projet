@@ -1,8 +1,13 @@
 import os
+from pathlib import Path
+
 from dotenv import load_dotenv
 
-if os.path.exists(".env"):
-    load_dotenv(".env")
+# Cherche .env dans le CWD d'abord, puis dans ~ (pour usage CLI depuis n'importe où)
+for _env_path in [Path(".env"), Path.home() / ".env"]:
+    if _env_path.exists():
+        load_dotenv(_env_path)
+        break
 
 # Import streamlit une seule fois ; None si exécuté hors contexte Streamlit.
 try:
@@ -12,7 +17,12 @@ except ImportError:
 
 
 def _lire_secret(cle: str, defaut: str = "") -> str:
-    """Lit depuis st.secrets (Streamlit Cloud) en priorité, puis depuis .env / variables d'environnement."""
+    """
+    Ordre de priorité :
+      1. st.secrets       (Streamlit Cloud)
+      2. .env / variables d'environnement système
+      3. config/_bundled  (clé embarquée dans le package distribué)
+    """
     if _st is not None:
         try:
             val = _st.secrets.get(cle)
@@ -20,7 +30,21 @@ def _lire_secret(cle: str, defaut: str = "") -> str:
                 return str(val)
         except Exception:
             pass
-    return os.getenv(cle, defaut)
+
+    valeur = os.getenv(cle, "")
+    if valeur:
+        return valeur
+
+    # Fallback : clé embarquée dans le package (pour les installations distribuées)
+    if cle == "GEMINI_API_KEY":
+        try:
+            from config._bundled import GEMINI_API_KEY as _cle_bundled
+            if _cle_bundled:
+                return _cle_bundled
+        except ImportError:
+            pass
+
+    return defaut
 
 
 class Settings:

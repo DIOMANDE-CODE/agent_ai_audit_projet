@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codepulse"
+version = "1.0.0"
+description = "Agent IA d'audit technique de projets — analyse le code source et génère un rapport structuré en Markdown et PDF."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+authors = [
+    { name = "DIOMANDE DROH MARTIAL", email = "diomandedroh79@gmail.com" }
+]
+keywords = ["audit", "code", "ia", "gemini", "analyse", "rapport", "cli"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Utilities",
+]
+dependencies = [
+    "google-genai>=2.9.0",
+    "python-dotenv>=1.0.0",
+    "reportlab>=5.0.0",
+    "rich>=13.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/DIOMANDE-CODE/audit-project-agent"
+Issues   = "https://github.com/DIOMANDE-CODE/audit-project-agent/issues"
+
+[project.scripts]
+pulse = "main:main"
+
+[tool.setuptools]
+py-modules = ["main"]
+packages   = ["config", "core", "services"]
+
+[tool.setuptools.package-data]
+config = ["_bundled.py"]

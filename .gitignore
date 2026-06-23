@@ -3,6 +3,7 @@
 *.key
 *.pem
 *.p12
+config/_bundled.py
 
 
 # ── Environnement virtuel ─────────────────────────────────────────────────────
