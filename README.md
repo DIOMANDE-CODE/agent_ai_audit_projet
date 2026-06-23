@@ -13,7 +13,7 @@ Agent IA d'audit technique de projets informatiques. Analyse le code source, l'a
 - Exclusion automatique des fichiers sensibles (`.env`, `node_modules`, `__pycache__`, venvs…)
 - Streaming : affichage du rapport en temps réel pendant la génération
 - Interface web optionnelle (Streamlit) pour les non-développeurs
-- Compatible **Streamlit Cloud** et **Render** : clé API configurable via variables d'environnement
+
 
 ## Piliers analysés
 
@@ -32,22 +32,13 @@ Agent IA d'audit technique de projets informatiques. Analyse le code source, l'a
 
 ## Installation
 
-### Via PyPI (recommandé)
+### Via pip (recommandé)
 
 ```bash
 pip install agent-audit-ai
 audit .
 ```
 
-Aucune configuration requise — la clé API est embarquée dans le package.
-
-### Via l'exécutable Windows
-
-Télécharger `audit.exe` depuis la page [Releases GitHub](https://github.com/DIOMANDE-CODE/agent_ai_audit_projet/releases), le placer dans `C:\Windows\System32\` et l'utiliser directement :
-
-```cmd
-audit .
-```
 
 ### Via le code source
 
@@ -102,15 +93,6 @@ Pour les utilisateurs non-développeurs, une interface Streamlit est disponible.
 
 5. Cliquer **Create Web Service** — Render construit l'image et expose l'URL publique.
 
-### Déploiement sur Streamlit Cloud
-
-1. Forkez / poussez ce dépôt sur GitHub
-2. Connectez-le à [share.streamlit.io](https://share.streamlit.io)
-3. Dans **Settings → Secrets**, ajoutez :
-
-```toml
-GEMINI_API_KEY = "votre_cle_api_ici"
-```
 
 ### Docker (local)
 

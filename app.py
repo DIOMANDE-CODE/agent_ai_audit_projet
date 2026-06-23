@@ -87,11 +87,13 @@ with st.sidebar:
     st.divider()
 
     with st.expander("Installer CodePulse sur votre PC", icon="💻"):
-        st.markdown("**Via PyPI (recommandé)**")
+        st.markdown("**Via la dépendance pip (recommandé)**")
         st.code("pip install agent-audit-ai", language="bash")
         st.markdown("**Utilisation**")
-        st.code("audit .\naudit /chemin/vers/mon-projet\naudit /chemin/vers/mon-projet --stream", language="bash")
-        st.caption("Aucune configuration requise — la clé API est embarquée.")
+        st.code(
+            "audit .\naudit /chemin/vers/mon-projet\naudit /chemin/vers/mon-projet --stream",
+            language="bash",
+        )
 
     st.divider()
     st.caption("Fait par DIOMANDE DROH MARTIAL")
@@ -130,7 +132,9 @@ with st.container(border=True):
 
     st.markdown("")
 
-    btn_label = "Analyse en cours..." if st.session_state.audit_en_cours else "Lancer l'audit"
+    btn_label = (
+        "Analyse en cours..." if st.session_state.audit_en_cours else "Lancer l'audit"
+    )
     lancer = st.button(
         btn_label,
         type="primary",
@@ -192,14 +196,12 @@ try:
 
             with zipfile.ZipFile(zip_buffer, "r") as zf:
                 membres_surs = [
-                    m for m in zf.namelist()
-                    if not m.startswith("/") and ".." not in m
+                    m for m in zf.namelist() if not m.startswith("/") and ".." not in m
                 ]
                 zf.extractall(tmpdir_zip.name, members=membres_surs)
 
             contenu = [
-                p for p in Path(tmpdir_zip.name).iterdir()
-                if not p.name.startswith(".")
+                p for p in Path(tmpdir_zip.name).iterdir() if not p.name.startswith(".")
             ]
             chemin = (
                 contenu[0]
@@ -212,8 +214,8 @@ try:
             st.error(f"Erreur lors du chargement du projet : {e}")
             st.stop()
 
-    horodatage       = datetime.now().strftime("%Y%m%d_%H%M%S")
-    nom_projet       = chemin.resolve().name
+    horodatage = datetime.now().strftime("%Y%m%d_%H%M%S")
+    nom_projet = chemin.resolve().name
     nom_fichier_base = f"audit_{nom_projet}_{horodatage}"
 
     # Ingestion + génération du prompt
@@ -224,8 +226,8 @@ try:
             st.error(str(e))
             st.stop()
 
-        nb_fichiers    = metadonnees.get("nb_fichiers", 0)
-        nb_ignores     = len(metadonnees.get("fichiers_ignores", []))
+        nb_fichiers = metadonnees.get("nb_fichiers", 0)
+        nb_ignores = len(metadonnees.get("fichiers_ignores", []))
         tokens_estimes = metadonnees.get("tokens_estimes", 0)
 
         if nb_fichiers == 0:
@@ -245,7 +247,9 @@ try:
     rapport_accumule = ""
 
     try:
-        with st.status("Génération du rapport en cours...", expanded=False) as statut_gemini:
+        with st.status(
+            "Génération du rapport en cours...", expanded=False
+        ) as statut_gemini:
             for chunk in client.analyser_projet_stream(prompt):
                 rapport_accumule += chunk
                 rapport_placeholder.markdown(rapport_accumule)
